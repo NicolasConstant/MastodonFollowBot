@@ -1,6 +1,8 @@
 ﻿using System;
+using MastodonFollowBot.Model;
 using MastodonFollowBot.Settings;
 using MastodonFollowBot.Tools;
+using Mastonet.Entities;
 
 namespace MastodonFollowBot
 {
@@ -18,13 +20,22 @@ namespace MastodonFollowBot
             try
             {
                 var config = configFileHandler.ReadConfigFile<AppSettings>();
+                var followBot = new FollowBot(config);
+                followBot.Run();
+
             }
             catch (Exception e)
             {
                 var settings = new AppSettings()
                 {
-                    Source = new AppAccount(),
+                    Source = new AppAccount()
+                    {
+                        AppRegistration = new AppRegistration()
+                    },
                     Target = new AppAccount()
+                    {
+                        AppRegistration = new AppRegistration()
+                    },
                 };
                 configFileHandler.WriteConfigFile(settings);
 
