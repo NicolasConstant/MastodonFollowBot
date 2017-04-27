@@ -16,13 +16,21 @@ namespace MastodonFollowBot
             
             //Read Config File
             var configFileHandler = new ConfigFileHandler("MastodonFollowBot", "appconfig.json");
+            var config = GetAppSettings(configFileHandler);
 
+            //Launch follow bot
+            var followBot = new FollowBot(config);
+            followBot.Run().Wait();
+
+            Console.ReadLine();
+        }
+
+        private static AppSettings GetAppSettings(ConfigFileHandler configFileHandler)
+        {
             try
             {
                 var config = configFileHandler.ReadConfigFile<AppSettings>();
-                var followBot = new FollowBot(config);
-                followBot.Run();
-
+                return config;
             }
             catch (Exception e)
             {
@@ -41,10 +49,8 @@ namespace MastodonFollowBot
 
                 Console.WriteLine("Please set your config file in AppData\\Local\\MastodonFollowBot");
                 Console.ReadLine();
-                return;
+                throw;
             }
-
-            Console.ReadLine();
         }
     }
 }
