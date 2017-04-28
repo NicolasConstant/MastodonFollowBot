@@ -4,52 +4,57 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using MastodonFollowBot.Settings;
-using Mastonet;
-using Mastonet.Entities;
 using System.Globalization;
+using mastodon;
+using mastodon.Enums;
+using mastodon.Models;
 
 namespace MastodonFollowBot.Model
 {
     public class FollowBot
     {
-        private readonly AppSettings _config;
+        //private readonly AppSettings _config;
+        private readonly MastodonClient _mastodonClientSource;
+        private readonly MastodonClient _mastodonClientTarget;
+        private readonly string _accessTokenSource;
+        private readonly string _accessTokenTarget;
+
 
         #region Ctor
         public FollowBot(AppSettings config)
         {
-            _config = config;
+            //_config = config;
+            _mastodonClientSource = new MastodonClient(config.Source.InstanceName);
+            _mastodonClientTarget = new MastodonClient(config.Target.InstanceName);
+
+            _accessTokenSource = GetToken(config.Source);
+            _accessTokenTarget = GetToken(config.Target);
         }
         #endregion
 
-        public async Task Run()
+        public void Run()
         {
-            foreach (var account in GetAllAccounts(_config.Source))
+            foreach (var account in GetAllAccounts(_mastodonClientSource, _accessTokenSource))
             {
-                await FollowAccount(_config.Target, account);
+                FollowAccount(_mastodonClientTarget, _accessTokenTarget, account);
             }
         }
 
-        private async Task FollowAccount(AppAccount configTarget, Account mastodonAccount)
+        private void FollowAccount(MastodonClient client, string token, Account mastodonAccount)
         {
-            var client = await GetClient(configTarget);
-
-            await client.Follow(mastodonAccount.ProfileUrl);
+            client.FollowRemote(mastodonAccount.url, token);
         }
 
-        public IEnumerable<Account> GetAllAccounts(AppAccount configSource)
+        private IEnumerable<Account> GetAllAccounts(MastodonClient client, string token)
         {
             var iter = 0;
-            var clientTask = GetClient(configSource);
-            clientTask.Wait();
 
             for (;;)
             {
                 if (iter % 100 == 0) Console.WriteLine($"{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff", CultureInfo.InvariantCulture)} - Iteration: {iter}");
 
-                var accountTask = clientTask.Result.GetAccount(iter);
-                accountTask.Wait();
+                var account = client.GetAccount(iter, token);
 
-                var account = accountTask.Result;
                 if (account == null) yield break;
                 yield return account;
 
@@ -57,12 +62,11 @@ namespace MastodonFollowBot.Model
             }
         }
 
-        private static async Task<MastodonClient> GetClient(AppAccount config)
+        private string GetToken(AppAccount config)
         {
-            var authClient = new AuthenticationClient(config.InstanceName);
-            var auth = await authClient.ConnectWithPassword(config.Email, config.Password);
-            var client = new MastodonClient(config.AppRegistration, auth);
-            return client;
+            var authClient = new AuthHandler(config.InstanceName);
+            var token = authClient.GetTokenInfo(config.AppClientId, config.AppClientSecret,  config.Email, config.Password, AppScopeEnum.Follow | AppScopeEnum.Read | AppScopeEnum.Write);
+            return token.access_token;
         }
     }
 }
