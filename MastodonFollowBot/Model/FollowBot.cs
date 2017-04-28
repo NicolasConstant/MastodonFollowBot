@@ -18,6 +18,7 @@ namespace MastodonFollowBot.Model
         private readonly MastodonClient _mastodonClientTarget;
         private readonly string _accessTokenSource;
         private readonly string _accessTokenTarget;
+        private readonly string _instanceNameSource;
 
 
         #region Ctor
@@ -29,6 +30,10 @@ namespace MastodonFollowBot.Model
 
             _accessTokenSource = GetToken(config.Source);
             _accessTokenTarget = GetToken(config.Target);
+
+            _instanceNameSource = config.Source.InstanceName.Replace("https://", "")
+                .Replace("http:/", "")
+                .Replace("/", "");
         }
         #endregion
 
@@ -42,21 +47,42 @@ namespace MastodonFollowBot.Model
 
         private void FollowAccount(MastodonClient client, string token, Account mastodonAccount)
         {
-            client.FollowRemote(mastodonAccount.url, token);
+            if (mastodonAccount.acct.Contains("@")) return;
+
+            var userId = $"@{mastodonAccount.acct}@{_instanceNameSource}";
+            client.FollowRemote(userId, token);
         }
 
         private IEnumerable<Account> GetAllAccounts(MastodonClient client, string token)
         {
-            var iter = 0;
-
+            var iter = 1;
+            var usersNotFound = 0;
+            
             for (;;)
             {
-                if (iter % 100 == 0) Console.WriteLine($"{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff", CultureInfo.InvariantCulture)} - Iteration: {iter}");
+                if (iter % 100 == 0)
+                {
+                    Console.WriteLine($"{DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss.fff", CultureInfo.InvariantCulture)} - Iteration: {iter}");
+                    if (usersNotFound >= 100)
+                    {
+                        Console.WriteLine("No users founds");
+                        yield break;
+                    }
+                    usersNotFound = 0;
+                }
 
-                var account = client.GetAccount(iter, token);
+                Account account = null;
+                try
+                {
+                    account = client.GetAccount(iter, token);
+                }
+                catch (Exception)
+                {
+                    usersNotFound++;
+                }
 
-                if (account == null) yield break;
-                yield return account;
+                //if (account == null) yield break;
+                if(account != null) yield return account;
 
                 iter++;
             }
