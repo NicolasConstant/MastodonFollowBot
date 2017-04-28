@@ -47,10 +47,17 @@ namespace MastodonFollowBot.Model
 
         private void FollowAccount(MastodonClient client, string token, Account mastodonAccount)
         {
-            if (mastodonAccount.acct.Contains("@")) return;
+            var userId = mastodonAccount.acct;
+            if (!userId.Contains("@")) userId = $"@{mastodonAccount.acct}@{_instanceNameSource}";
 
-            var userId = $"@{mastodonAccount.acct}@{_instanceNameSource}";
-            client.FollowRemote(userId, token);
+            try
+            {
+                client.FollowRemote(userId, token);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
         }
 
         private IEnumerable<Account> GetAllAccounts(MastodonClient client, string token)
